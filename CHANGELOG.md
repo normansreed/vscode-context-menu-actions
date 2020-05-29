@@ -1,16 +1,13 @@
-## 1.0.4
-- Now shows progression.
-- Now cancellable.
+# Changelog
 
-## 1.0.3
-- Added a setting to close files after saving.
+All\* notable changes should be listed in this file.
 
-## 1.0.2
-- Added demo in `README.md`.
-- Fixes formatting files from SCM when some deleted files are selected.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.0.1
-- Fixed extension `README.md` from vscode extension store.
+## [0.1.0] - 2020-05-29
 
-## 1.0.0
-- Initial release.
+### Added
+
+- Configurable actions
+- Newer vscode extension boilerplate
