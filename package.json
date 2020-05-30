@@ -2,7 +2,7 @@
   "name": "vscode-context-menu-actions",
   "displayName": "File actions in context menu",
   "description": "VSCode extension to apply actions to files from the context menu.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "normansreed",
   "icon": "assets/icon.png",
   "author": {
@@ -34,9 +34,8 @@
     "Formatters"
   ],
   "activationEvents": [
-    "onCommand:extension.applyFileActionsFromExplorerContext",
-    "onCommand:extension.applyFileActionsFromScmContext",
-    "onCommand:extension.applyFileActionsEditorTile"
+    "onCommand:extension.runActions",
+    "onCommand:extension.chooseAction"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -46,9 +45,21 @@
         "properties": {
           "contextMenuActions.actions": {
             "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                "editor.action.organizeImports",
+                "editor.action.formatDocument",
+                "editor.action.fixAll"
+              ],
+              "additionalItems": true
+            },
+            "uniqueItems": true,
+            "minItems": 1,
             "default": [
               "editor.action.organizeImports",
-              "editor.action.formatDocument"
+              "editor.action.formatDocument",
+              "editor.action.fixAll"
             ],
             "description": "Actions to perform on each file. (WARNING: While contextMenuActions technically supports any editor/workspace action in VSCode, it is only tested for organize imports and formatting the document. Use other values at your own risk!)",
             "scope": "window"
@@ -70,32 +81,31 @@
     ],
     "commands": [
       {
-        "command": "extension.applyFileActionsFromExplorerContext",
+        "command": "extension.runActions",
         "title": "Run Actions"
       },
       {
-        "command": "extension.applyFileActionsFromScmContext",
-        "title": "Run Actions"
-      },
-      {
-        "command": "extension.applyFileActionsEditorTile",
-        "title": "Run Actions"
+        "command": "extension.chooseAction",
+        "title": "Run Action..."
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "extension.applyFileActionsFromExplorerContext"
+          "command": "extension.runActions",
+          "group": "7_modification"
+        },
+        {
+          "command": "extension.chooseAction",
+          "group": "7_modification"
         }
       ],
       "scm/resourceState/context": [
         {
-          "command": "extension.applyFileActionsFromScmContext"
-        }
-      ],
-      "editor/title/context": [
+          "command": "extension.runActions"
+        },
         {
-          "command": "extension.applyFileActionsEditorTile"
+          "command": "extension.chooseAction"
         }
       ]
     }
@@ -106,7 +116,8 @@
     "lint": "eslint src --ext ts",
     "watch": "tsc -watch -p ./",
     "pretest": "yarn run compile && yarn run lint",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/index.js",
+    "prepack": "vsce package --yarn -o ./out/"
   },
   "devDependencies": {
     "@types/vscode": "^1.45.0",
