@@ -34,7 +34,7 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
     const progressOptions: vscode.ProgressOptions = {
         location: vscode.ProgressLocation.Notification,
         title: `Running `,
-        cancellable: true,
+        cancellable: true
     };
 
     await vscode.window.withProgress(progressOptions, async (progress: vscode.Progress<ProgressUpdate>, cancellationToken: vscode.CancellationToken) => {
@@ -43,10 +43,15 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
             const filename = path.basename(fact.uri.fsPath);
 
             try {
-                await vscode.window.showTextDocument(fact.uri, { preserveFocus: false, preview: true });
-                await vscode.commands.executeCommand(fact.action, fact.uri);
+                const editor = await vscode.window.showTextDocument(fact.uri, { preserveFocus: false, preview: true });
+                const language = editor.document.languageId;
+                const preDiags = vscode.languages.getDiagnostics(fact.uri);
+                const result = await vscode.commands.executeCommand(fact.action);
+                const postDiags = vscode.languages.getDiagnostics(fact.uri);
+                console.log(language, result, preDiags, postDiags);
+                // vscode.window.activeTextEditor?.document.save();
                 if (saveAfterFormat) {
-                    await vscode.commands.executeCommand('workbench.action.files.save');
+                    await vscode.commands.executeCommand('workbench.action.files.saveWithoutFormatting');
                     if (closeAfterSave) {
                         await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
                     }
@@ -54,17 +59,22 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
                 completedFileActions.push(fact);
             } catch (e) {
                 errors.push({ ...fact, error: e });
-                vscode.window.showErrorMessage('Error running %s on %s: %s', fact.action, fact.uri.fsPath, e);
+                if (!/seems to be binary/gm.test(e.message)) {
+                    vscode.window.showErrorMessage(`Error running ${fact.action} on ${fact.uri.fsPath}: ${e}`);
+                }
                 console.error(e);
             }
-
+            const msPerAction = elapsed(started) / i;
+            const remaining = allFileActions.length - i;
+            const msRemaining = remaining * msPerAction;
+            const timeRemaining = Math.round(msRemaining / 1000);
             progress.report({
                 increment: increment,
-                message: `${i + 1}/${allFileActions.length} - ${filename}`
+                message: `${i + 1}/${allFileActions.length} ETA ~${timeRemaining}s - ${filename}`
             });
         }
-
-        vscode.window.showInformationMessage(`
+        const message = errors.length > 0 ? vscode.window.showWarningMessage : vscode.window.showInformationMessage;
+        message(`
         Completed ${completedFileActions.length} actions 
         in ${elapsed(started)}ms
         ${errors.length > 0 ? errors.length + ' errors encountered' : ''}
@@ -108,8 +118,9 @@ function resolveFiles(...args: any[]) {
 }
 
 async function promptAction() {
+    const allActions = await vscode.commands.getCommands();
     return await vscode.window.showQuickPick(
-        getEnabledActions()
+        [...getEnabledActions(), ...allActions.sort()]
     );
 }
 
@@ -117,14 +128,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(...[
         vscode.commands.registerCommand(RUN_ACTIONS, async (...args: any[]) => {
             const f = await getRecursiveUris(resolveFiles(...args));
-            await applyActions(f);
+            await applyActions(f.sort((a, b) => (a.fsPath > b.fsPath ? 1 : a.fsPath < b.fsPath ? -1 : 0)));
         }),
 
         vscode.commands.registerCommand(CHOOSE_ACTION, async (...args: any[]) => {
             const f = await getRecursiveUris(resolveFiles(...args));
             const action = await promptAction();
             if (action) {
-                applyActions(f, [action]);
+                await applyActions(f.sort((a, b) => (a.fsPath > b.fsPath ? 1 : a.fsPath < b.fsPath ? -1 : 0)), [action]);
             }
         })
     ]);
