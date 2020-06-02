@@ -9,14 +9,12 @@ import * as vscode from 'vscode';
 import { FileAction } from './FileAction';
 import { ProgressUpdate } from './ProgressUpdate';
 
-type FileActionSort = (f: FileAction) => any;
-
 const time = () => new Date().getTime();
 const elapsed = (start: number) => time() - start;
 
 const CHOOSE_ACTION = 'extension.chooseAction';
 const RUN_ACTIONS = 'extension.runActions';
-const TIMEOUT = 150;
+const TIMEOUT = 280;
 
 function getFileActionString(fa: FileAction) {
     let s = `${path.basename(fa.uri.fsPath)} => ${fa.action}`;
@@ -27,6 +25,7 @@ function getFileActionString(fa: FileAction) {
 const byEventUri = (uri: vscode.Uri) => (e: vscode.TextDocumentChangeEvent) => e.document.uri.toString() === uri.toString();
 
 const getEnabledActions = () => vscode.workspace.getConfiguration().get('contextMenuActions.actions') as Array<string>;
+const getTimeout = () => vscode.workspace.getConfiguration().get('contextMenuActions.actionTimeout') as number;
 
 function filterFileTypeAction(uri: vscode.Uri, action: string): boolean {
     const ext = path.extname(uri.fsPath);
@@ -42,19 +41,24 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
     const diagnostics$ = new Subject<vscode.DiagnosticChangeEvent>();
     const editor$ = new Subject<vscode.TextEditor>();
     const save$ = new Subject<vscode.TextDocumentWillSaveEvent>();
+    const open$ = new Subject<vscode.TextDocument>();
 
     const onDidChange = vscode.workspace.onDidChangeTextDocument(e => change$.next(e));
     const onDiagnosticsChange = vscode.languages.onDidChangeDiagnostics(e => diagnostics$.next(e));
     const onEditorChange = vscode.window.onDidChangeActiveTextEditor(e => editor$.next(e));
     const onWillSave = vscode.workspace.onWillSaveTextDocument(e => save$.next(e));
+    const onDidOpen = vscode.workspace.onDidOpenTextDocument(e => open$.next(e));
 
-    change$.subscribe(change => {
+    change$.subscribe(async change => {
         const active = vscode.window.activeTextEditor?.document;
         if (active && active?.fileName !== change.document.fileName) {
+            // await vscode.window.showTextDocument(change.document.uri, { preserveFocus: false, preview: true });
             console.warn('%s changed, but %s is the active tab!', path.basename(change.document.fileName), path.basename(active.fileName));
         }
         console.log('%s changed', path.basename(change.document.fileName));
+        change.document.save();
     });
+    open$.subscribe(d => console.log('%s opened', path.basename(d.uri.fsPath)));
     editor$.subscribe(editor => {
         console.log('%s active', editor ? path.basename(editor.document.fileName) : '(none)');
     });
@@ -100,7 +104,7 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
                 console.log(getFileActionString(fact));
                 try {
                     const editor = await vscode.window.showTextDocument(fact.uri, { preserveFocus: false, preview: true });
-                    await vscode.commands.executeCommand(fact.action, fact.uri);
+                    const result = await vscode.commands.executeCommand(fact.action, fact.uri);
                     try {
                         const change = await fact.didChange$.pipe(timeout(TIMEOUT), first()).toPromise();
                         console.info('  change observed: ', change);
@@ -140,7 +144,9 @@ const applyActions = async (uris: vscode.Uri[], actions = getEnabledActions()) =
         `);
         });
     onEditorChange.dispose();
+    onDiagnosticsChange.dispose();
     onDidChange.dispose();
+    onDidOpen.dispose();
     onWillSave.dispose();
 };
 
