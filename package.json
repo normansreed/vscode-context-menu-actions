@@ -44,6 +44,8 @@
         "title": "Context Menu Actions",
         "properties": {
           "contextMenuActions.actions": {
+            "title": "Commands",
+            "description": "Commands to be run on each file. Any vscode or extension command is valid, but use non-file commands at your own risk.",
             "type": "array",
             "items": {
               "type": "string",
@@ -61,8 +63,16 @@
               "editor.action.formatDocument",
               "editor.action.fixAll"
             ],
-            "description": "Actions to perform on each file. (WARNING: While contextMenuActions technically supports any editor/workspace action in VSCode, it is only tested for organize imports and formatting the document. Use other values at your own risk!)",
             "scope": "window"
+          },
+          "contextMenuActions.globFilters": {
+            "title": "Glob Filters",
+            "description": "Specify glob file patterns to use for actions",
+            "type": "object",
+            "default": {
+              "editor.action.organizeImports": "**/*.(!css)"
+            },
+            "propertyNames": true
           },
           "contextMenuActions.save": {
             "type": "boolean",
@@ -74,6 +84,14 @@
             "type": "boolean",
             "default": false,
             "description": "Close file after saving. This does nothing unless you have enabled saving after performing actions.",
+            "scope": "window"
+          },
+          "contextMenuActions.actionTimeout": {
+            "type": "number",
+            "default": 500,
+            "description": "The amount of time after attempting to apply an action for an editor update before continuing to the next file.",
+            "title": "Action Timeout",
+            "minimum": 150,
             "scope": "window"
           }
         }
